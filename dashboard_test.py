@@ -77,6 +77,9 @@ dataframe.head(5)
 dataframe["Time"] = list(np.arange(19206))
 index_step_size = 1000
 
+default_x_name = "Time"
+default_y_name = "Temp Terminal"
+
 app.layout = html.Div(
     children=[
         html.Div(
@@ -101,11 +104,16 @@ app.layout = html.Div(
                                 {"label": region, "value": region}
                                 for region in col_names
                             ],
-                            value="Time",
+                            value=default_x_name,
                             clearable=False,
                             className="dropdown",
                         ),
                     ]
+                ),
+                dcc.Input(
+                    id="var_x_name",
+                    type="hidden",
+                    value=default_x_name,
                 ),
                 html.Div(
                     children=[
@@ -116,11 +124,16 @@ app.layout = html.Div(
                                 {"label": region, "value": region}
                                 for region in col_names
                             ],
-                            value="Temp Terminal",
+                            value=default_y_name,
                             clearable=False,
                             className="dropdown",
                         ),
                     ]
+                ),
+                dcc.Input(
+                    id="var_y_name",
+                    type="hidden",
+                    value=default_y_name,
                 ),
             ],
             className="menu",
@@ -145,14 +158,27 @@ app.layout = html.Div(
 
 
 @app.callback(
-    Output("chart", "figure"),
+    [
+        Output("chart", "figure"),
+        Output("interval-component", "n_intervals"),
+        Output("var_x_name", "value"),
+        Output("var_y_name", "value"),
+    ],
     [
         Input("x-filter", "value"),
         Input("y-filter", "value"),
+        Input("var_x_name", "value"),
+        Input("var_y_name", "value"),
         Input("interval-component", "n_intervals"),
     ],
 )
-def update_charts(x_col_name="Time", y_col_name="Temp Terminal", n_intervals=1):
+def update_charts(
+    x_col_name=default_x_name,
+    y_col_name=default_y_name,
+    old_x_name=None,
+    old_y_name=None,
+    n_intervals=1,
+):
     unit = units[col_names.index(y_col_name)]
     """
     price_chart_figure = {
@@ -177,10 +203,14 @@ def update_charts(x_col_name="Time", y_col_name="Temp Terminal", n_intervals=1):
         },
     }
     """
+    n_result = n_intervals + 1
+    if x_col_name != old_x_name or y_col_name != old_y_name:
+        n_result = 0
+
+    end_index = min(len(dataframe), n_result * index_step_size)
+    data = dataframe.iloc[:end_index, :]
+    data[y_col_name] = data[y_col_name].astype(float)
     if x_col_name == "Time" and y_col_name == "Temp Terminal":
-        end_index = min(len(dataframe), n_intervals * index_step_size)
-        data = dataframe.iloc[:end_index, :]
-        data[y_col_name] = data[y_col_name].astype(float)
         colors = [color_of_temp(v) for v in data[y_col_name]]
         price_chart_figure = px.scatter(
             data,
@@ -194,13 +224,13 @@ def update_charts(x_col_name="Time", y_col_name="Temp Terminal", n_intervals=1):
             },
         )
     else:
-        end_index = 1000
         price_chart_figure = px.scatter(
-            dataframe,
+            data,
             x=x_col_name,
             y=y_col_name,
         )
-    return price_chart_figure
+
+    return price_chart_figure, n_result, x_col_name, y_col_name
 
 
 def color_of_temp(temp):

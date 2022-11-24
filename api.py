@@ -40,6 +40,6 @@ def index():
     color = get_lamp_color(pred)
     print(color)
 
-    return jsonify({'prediction': str(pred), 'classification': str(color)})
+    return jsonify({'prediction': str(pred), 'classification': str(color),'input':str(X[input])})
 
 app.run(debug=True, use_reloader=False)

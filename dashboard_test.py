@@ -75,20 +75,60 @@ dataframe.columns = col_names
 dataframe = dataframe.drop([0], axis=0)
 dataframe.head(5)
 dataframe["Time"] = list(np.arange(19206))
+
+# constants
 index_step_size = 1000
+step_time = 2000
 
 default_x_name = "Time"
-default_y_name = "Temp Terminal"
+default_y_name = "Input power"
+
+message_text = {
+    "green": "läuft bei der Pumpe",
+    "yellow": "Ey, mach mal was!",
+    "red": "Es ist kritisch!!!",
+    "blank": "",
+}
+
+color_codes = {
+    "red": "#d94800",
+    "yellow": "#ffd105",
+    "green": "#88dc08",
+    "gray": "#A0A0A0",
+}
 
 app.layout = html.Div(
     children=[
         html.Div(
             children=[
                 html.P(children="📈", className="header-emoji"),
-                html.H1(children="Analytics", className="header-title"),
+                html.H1(
+                    children="Predictive Maintainance Dashboard",
+                    className="header-title",
+                ),
                 html.P(
-                    children="Analyze the parameter of the pump",
+                    children="Dashboard for the Visualization of all Pump Sensors. The Traffic Light indicates the possible states of the Pump: ok, warning, critical",
                     className="header-description",
+                ),
+                html.Div(
+                    children=[
+                        html.Div(
+                            id="green-light",
+                            className="traffic-light-single",
+                            style={"backgroundColor": color_codes["green"]},
+                        ),
+                        html.Div(
+                            id="yellow-light",
+                            className="traffic-light-single",
+                            style={"backgroundColor": color_codes["yellow"]},
+                        ),
+                        html.Div(
+                            id="red-light",
+                            className="traffic-light-single",
+                            style={"backgroundColor": color_codes["red"]},
+                        ),
+                    ],
+                    className="traffic-light-container",
                 ),
             ],
             className="header",
@@ -97,7 +137,7 @@ app.layout = html.Div(
             children=[
                 html.Div(
                     children=[
-                        html.Div(children="X", className="menu-title"),
+                        html.Div(children="X:", className="menu-title"),
                         dcc.Dropdown(
                             id="x-filter",
                             options=[
@@ -108,7 +148,8 @@ app.layout = html.Div(
                             clearable=False,
                             className="dropdown",
                         ),
-                    ]
+                    ],
+                    className="menu-item-container",
                 ),
                 dcc.Input(
                     id="var_x_name",
@@ -117,7 +158,7 @@ app.layout = html.Div(
                 ),
                 html.Div(
                     children=[
-                        html.Div(children="Y", className="menu-title"),
+                        html.Div(children="Y:", className="menu-title"),
                         dcc.Dropdown(
                             id="y-filter",
                             options=[
@@ -128,7 +169,8 @@ app.layout = html.Div(
                             clearable=False,
                             className="dropdown",
                         ),
-                    ]
+                    ],
+                    className="menu-item-container",
                 ),
                 dcc.Input(
                     id="var_y_name",
@@ -141,17 +183,29 @@ app.layout = html.Div(
         html.Div(
             children=[
                 html.Div(
-                    dcc.Graph(
-                        id="chart",
-                        config={"displayModeBar": False},
-                    ),
+                    children=[
+                        dcc.Graph(
+                            id="chart",
+                            config={"displayModeBar": False},
+                        ),
+                    ],
                     className="card",
+                ),
+                html.Div(
+                    id="gif-card",
+                    children=[html.Img(id="gif", src="./assets/tempterminal.gif")],
+                    className="card",
+                    style={
+                        "display": "none",
+                    },
                 ),
             ],
             className="wrapper",
         ),
         dcc.Interval(
-            id="interval-component", interval=1 * 2000, n_intervals=0  # in milliseconds
+            id="interval-component",
+            interval=step_time,
+            n_intervals=0,  # in milliseconds
         ),
     ],
 )
@@ -163,6 +217,11 @@ app.layout = html.Div(
         Output("interval-component", "n_intervals"),
         Output("var_x_name", "value"),
         Output("var_y_name", "value"),
+        Output("gif", "src"),
+        Output("gif-card", "style"),
+        Output("green-light", "style"),
+        Output("yellow-light", "style"),
+        Output("red-light", "style"),
     ],
     [
         Input("x-filter", "value"),
@@ -180,36 +239,16 @@ def update_charts(
     n_intervals=1,
 ):
     unit = units[col_names.index(y_col_name)]
-    """
-    price_chart_figure = {
-        "data": [
-            {
-                "x": dataframe[x_col_name],
-                "y": dataframe[y_col_name],
-                "color": dataframe[y_col_name],
-                "type": "lines",
-                "hovertemplate": "%{y:.2f}" + unit + "<extra></extra>",
-            },
-        ],
-        "layout": {
-            "title": {
-                "text": "Chart",
-                "x": 0.05,
-                "xanchor": "left",
-            },
-            "xaxis": {"fixedrange": True},
-            "yaxis": {"tickprefix": "", "fixedrange": True},
-            # "colorway": ["#F7B897"],
-        },
-    }
-    """
-    n_result = n_intervals + 1
+    n_result = n_intervals
     if x_col_name != old_x_name or y_col_name != old_y_name:
         n_result = 0
 
     end_index = min(len(dataframe), n_result * index_step_size)
     data = dataframe.iloc[:end_index, :]
-    data[y_col_name] = data[y_col_name].astype(float)
+    data[y_col_name] = [float(e) if e != "INVALID" else 0 for e in data[y_col_name]]
+
+    gif_src = "./assets/tempterminal.gif"
+
     if x_col_name == "Time" and y_col_name == "Temp Terminal":
         colors = [color_of_temp(v) for v in data[y_col_name]]
         price_chart_figure = px.scatter(
@@ -217,26 +256,107 @@ def update_charts(
             x=x_col_name,
             y=y_col_name,
             color=colors,
-            color_discrete_map={
-                "red": "#FF0000",
-                "yellow": "#FFFF00",
-                "green": "#00FF00",
+            color_discrete_map=color_codes,
+            labels={
+                "Time": "Time (sec)",
+                "Temp Terminal": "Temp Terminal " + unit,
+                "green": "Ok",
             },
         )
+        temp_gif_style = {"display": "block"}
+    elif x_col_name == "Time" and y_col_name == "Input power":
+        colors = [color_of_power(v) for v in data[y_col_name]]
+        price_chart_figure = px.scatter(
+            data,
+            x=x_col_name,
+            y=y_col_name,
+            color=colors,
+            color_discrete_map=color_codes,
+            labels={
+                "Time": "Time (sec)",
+                "Input Power": "Input Power " + unit,
+                "green": "Ok",
+            },
+        )
+        temp_gif_style = {"display": "block"}
+        gif_src = "./assets/inputpower.gif"
     else:
+        colors = []
         price_chart_figure = px.scatter(
             data,
             x=x_col_name,
             y=y_col_name,
         )
+        temp_gif_style = {"display": "none"}
 
-    return price_chart_figure, n_result, x_col_name, y_col_name
+    green_style, yellow_style, red_style = get_light_styles(n_result, colors)
+
+    return (
+        price_chart_figure,
+        n_result,
+        x_col_name,
+        y_col_name,
+        gif_src,
+        temp_gif_style,
+        green_style,
+        yellow_style,
+        red_style,
+    )
+
+
+def get_light_styles(n_result, colors):
+    green_style = inactive_light_style("green")
+    yellow_style = inactive_light_style("yellow")
+    red_style = inactive_light_style("red")
+
+    end_index = min(len(dataframe), n_result * index_step_size)
+    data = dataframe.iloc[:end_index, :]
+    data["Temp Terminal"] = [
+        float(e) if e != "INVALID" else 0 for e in data["Temp Terminal"]
+    ]
+
+    last_color = colors[-1] if len(colors) > 0 else "green"
+    last_temp_color = (
+        color_of_temp(data["Temp Terminal"][len(data["Temp Terminal"]) - 1])
+        if len(data["Temp Terminal"]) > 0
+        else "green"
+    )
+    # colors = [color_of_temp(v) for v in data["Temp Terminal"]] + colors
+    if last_color == "red" or last_temp_color == "red":
+        light_color = "red"
+    elif last_color == "yellow" or last_temp_color == "yellow":
+        light_color = "yellow"
+    else:
+        light_color = "green"
+    if light_color == "red":
+        red_style = active_light_syle("red")
+    elif light_color == "yellow":
+        yellow_style = active_light_syle("yellow")
+    else:
+        green_style = active_light_syle("green")
+    return green_style, yellow_style, red_style
+
+
+def active_light_syle(name):
+    return {"backgroundColor": color_codes[name], "borderColor": color_codes[name]}
+
+
+def inactive_light_style(name):
+    return {"backgroundColor": "#444", "borderColor": color_codes["gray"]}
 
 
 def color_of_temp(temp):
     if temp > 80:
         return "red"
     if temp > 60:
+        return "yellow"
+    return "green"
+
+
+def color_of_power(p):
+    if p > 300:
+        return "red"
+    if p > 250:
         return "yellow"
     return "green"
 

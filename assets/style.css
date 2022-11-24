@@ -5,8 +5,8 @@ body {
 }
 
 .header {
-  background-color: #222222;
-  height: 288px;
+  background-color: darkslateblue;
+  height: 390px;
   padding: 16px 0 0 0;
 }
 
@@ -31,23 +31,41 @@ body {
   max-width: 384px;
 }
 
+.message-field-container {
+  padding: 12px 0 0 0;
+  background-color: white;
+}
+
+.message-field {
+  margin: 0px auto;
+  text-align: center;
+  max-width: 384px;
+}
+
 .wrapper {
-  margin-right: auto;
-  margin-left: auto;
-  max-width: 1024px;
+  width: 100%;
   padding-right: 10px;
   padding-left: 10px;
   margin-top: 32px;
+  display: flex;
 }
 
 .card {
   margin-bottom: 24px;
+  margin-right: 24px;
   box-shadow: 0 4px 6px 0 rgba(0, 0, 0, 0.18);
+  background-color: white;
+  width: 50%;
+}
+
+.card > img {
+  margin: 70px 0 0 20px;
+  width: 90%;
 }
 
 .menu {
-  height: 112px;
-  width: 912px;
+  height: 80px;
+  width: 800px;
   display: flex;
   justify-content: space-evenly;
   padding-top: 24px;
@@ -70,8 +88,32 @@ body {
   line-height: 32px;
 }
 
+.menu-item-container {
+  display: flex;
+}
+
 .menu-title {
+  margin-top: 16px;
+  margin-right: 12px;
   margin-bottom: 6px;
   font-weight: bold;
   color: #079a82;
+}
+
+.traffic-light-container {
+  display: flex;
+  margin: 32px auto 8px auto;
+  text-align: center;
+  max-width: 210px;
+  padding: 2px 10px;
+  background: #222;
+  border-radius: 10px;
+}
+
+.traffic-light-single {
+  width: 50px;
+  height: 50px;
+  margin: 10px;
+  border-radius: 100%;
+  border: 0px solid gray;
 }
